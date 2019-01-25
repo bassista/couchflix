@@ -12,14 +12,13 @@ import com.couchbase.client.java.search.result.facets.TermFacetResult;
 import com.couchbase.client.java.search.result.facets.TermRange;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StopWatch;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.cb.fts.sample.service.Query.EntityType.GENRES;
-import static com.cb.fts.sample.service.Query.EntityType.PERSON;
+import static com.cb.fts.sample.service.EntityExtractor.EntityType.GENRES;
+import static com.cb.fts.sample.service.EntityExtractor.EntityType.PERSON;
 
 @Service
 public class MovieServiceImpl implements MovieService {
@@ -30,32 +29,11 @@ public class MovieServiceImpl implements MovieService {
     @Autowired
     private MovieQueryParser movieQueryParser;
 
-
     @Override
     public Result searchQuery(String word, String filters) {
         Map<String,List<String>> facets = getFilters(filters);
-        return search11(word, facets);
+        return search12(word, facets);
     }
-
-    private Map<String,List<String>> getFilters(String filters){
-
-        if (filters == null || filters.trim().isEmpty()) {
-            return new HashMap<>();
-        }
-        String[] values = filters.split("::");
-
-        Map<String,List<String>> facets = new HashMap<>();
-        for(int i=0;i<values.length; i++) {
-
-            String[] test = values[i].split("=");
-            if(test.length > 1) {
-                facets.put(test[0], Arrays.asList(test[1].split(",")));
-            }
-        }
-
-        return facets;
-    }
-
 
     /**
      * Let's implement a simple search
@@ -328,77 +306,29 @@ public class MovieServiceImpl implements MovieService {
         return getSearchResults(result);
     }
 
-//    /**
-//     * Bruce willis
-//     * @param words
-//     * @return
-//     */
-//    private Result search10(String words, Map<String,List<String>> facets){
-//
-//        boolean hasPerson = false;//MovieQueryParser.containsPerson(words);
-//
-//        double penalty = 0;
-//        if(hasPerson){
-//            penalty = 0.4;
-//            System.out.println("the query is about a person : "+words );
-//        }
-//
-//        String indexName = "movies_shingle";
-//        DisjunctionQuery titleQuery = getDisjunction(words, "title", 1.4 -penalty);
-//        DisjunctionQuery overviewQuery = getDisjunction(words, "overview", 1);
-//
-//        DisjunctionQuery ftsQuery = null;
-//        if(!hasPerson) {
-//            DisjunctionQuery originalQuery = getDisjunction(words, "original_title", 1.15);
-//            ftsQuery = SearchQuery.disjuncts(titleQuery, originalQuery,
-//                    getActorsDisjunction(words, hasPerson),
-//                    getCrewDisjunction(words, hasPerson),
-//                    overviewQuery);
-//        } else {
-//            ftsQuery = SearchQuery.disjuncts(titleQuery,
-//                    getActorsDisjunction(words, hasPerson),
-//                    getCrewDisjunction(words, hasPerson),
-//                    overviewQuery);
-//        }
-//
-//        ConjunctionQuery conjunctionQuery = SearchQuery.conjuncts(ftsQuery,
-//                boostReleaseYearQuery(),
-//                boostRuntime(),
-//                boostWeightedRating(),
-//                boostPopularity());
-//
-//        SearchQueryResult result = movieRepository.getCouchbaseOperations().getCouchbaseBucket().query(
-//                new SearchQuery(indexName, conjunctionQuery).highlight().limit(30));
-//
-//        return getSearchResults(result);
-//    }
-
-
-
     private Result search11(String words, Map<String, List<String>> facets){
         String indexName = "movies_shingle";
 
-        Query query = movieQueryParser.parse(words);
+        EntityExtractor entityExtractor = movieQueryParser.parse(words);
 
         DisjunctionQuery ftsQuery = new DisjunctionQuery();
-        if(query.getWords().trim().length() >0) {
-            ftsQuery.or(getDisjunction(query.getWords(), "title", 1.4));
-            ftsQuery.or( getDisjunction(query.getWords(), "original_title", 1.15));
-            ftsQuery.or(getDisjunction(query.getWords(), "collection.name", 1.1));
-            ftsQuery.or( getDisjunction(query.getWords(), "overview"));
+        if(entityExtractor.getWords().trim().length() >0) {
+            ftsQuery.or(getDisjunction(entityExtractor.getWords(), "title", 1.4));
+            ftsQuery.or( getDisjunction(entityExtractor.getWords(), "original_title", 1.15));
+            ftsQuery.or(getDisjunction(entityExtractor.getWords(), "collection.name", 1.1));
+            ftsQuery.or( getDisjunction(entityExtractor.getWords(), "overview"));
         }
 
-        DisjunctionQuery actors = getActorsDisjunction(words, query);
+        DisjunctionQuery actors = getActorsDisjunction(words, entityExtractor);
         if(actors!= null) {
             ftsQuery.or(actors);
         }
 
-//        DisjunctionQuery crew = ftsQuery.or(getCrewDisjunction(words, query));
-//        if(crew!= null) {
-//            ftsQuery.or(crew);
-//        }
+        DisjunctionQuery crew = getCrewDisjunction(words, entityExtractor);
+        if(crew!= null) {
+            ftsQuery.or(crew);
+        }
 
-       // System.out.println("!!!!!!!!!!childQueries!!!!!!!"+ftsQuery.childQueries().size());
 
         ConjunctionQuery conjunctionQuery = SearchQuery.conjuncts(ftsQuery,
                 boostReleaseYearQuery(),
@@ -407,8 +337,8 @@ public class MovieServiceImpl implements MovieService {
                 boostWeightedRating(),
                 boostPopularity());
 
-        if(query.getEntities().containsKey(GENRES)) {
-            addFilters(conjunctionQuery, "genres.name", query.getEntities().get(GENRES));
+        if(entityExtractor.getEntities().containsKey(GENRES)) {
+            addFilters(conjunctionQuery, "genres.name", entityExtractor.getEntities().get(GENRES));
         }
 
         if(!facets.isEmpty()) {
@@ -417,10 +347,62 @@ public class MovieServiceImpl implements MovieService {
 
 
         System.out.println("===================================================");
-        System.out.println(query);
+        System.out.println(entityExtractor);
         System.out.println("===================================================");
 
-        SearchQuery searchQuery =  new SearchQuery(indexName, conjunctionQuery).highlight().limit(50);
+        SearchQuery searchQuery =  new SearchQuery(indexName, conjunctionQuery).highlight().limit(20);
+        searchQuery.addFacet("genres",  SearchFacet.term("genres.name", 10));
+        SearchQueryResult result = movieRepository.getCouchbaseOperations().getCouchbaseBucket().query(searchQuery);
+        return getSearchResults(result);
+    }
+
+
+
+    private Result search12(String words, Map<String, List<String>> facets){
+        String indexName = "movies_shingle";
+
+        EntityExtractor entityExtractor = movieQueryParser.parse(words);
+
+        DisjunctionQuery ftsQuery = new DisjunctionQuery();
+        if(entityExtractor.getWords().trim().length() >0) {
+            ftsQuery.or(getDisjunction(entityExtractor.getWords(), "title", 1.4));
+            ftsQuery.or( getDisjunction(entityExtractor.getWords(), "original_title", 1.15));
+            ftsQuery.or(getDisjunction(entityExtractor.getWords(), "collection.name", 1.1));
+            ftsQuery.or( getDisjunction(entityExtractor.getWords(), "overview"));
+        }
+
+        DisjunctionQuery actors = getActorsDisjunctionAdjusted(words, entityExtractor);
+        if(actors!= null) {
+            ftsQuery.or(actors);
+        }
+
+        DisjunctionQuery crew = getCrewDisjunction(words, entityExtractor);
+        if(crew!= null) {
+            ftsQuery.or(crew);
+        }
+
+
+        ConjunctionQuery conjunctionQuery = SearchQuery.conjuncts(ftsQuery,
+                boostReleaseYearQuery(),
+                boostRuntime(),
+                boostPromoted(),
+                boostWeightedRating(),
+                boostPopularity());
+
+        if(entityExtractor.getEntities().containsKey(GENRES)) {
+            addFilters(conjunctionQuery, "genres.name", entityExtractor.getEntities().get(GENRES));
+        }
+
+        if(!facets.isEmpty()) {
+            conjunctionQuery = addFacetFilters(conjunctionQuery, facets);
+        }
+
+
+        System.out.println("===================================================");
+        System.out.println(entityExtractor);
+        System.out.println("===================================================");
+
+        SearchQuery searchQuery =  new SearchQuery(indexName, conjunctionQuery).highlight().limit(20);
         searchQuery.addFacet("genres",  SearchFacet.term("genres.name", 10));
         SearchQueryResult result = movieRepository.getCouchbaseOperations().getCouchbaseBucket().query(searchQuery);
         return getSearchResults(result);
@@ -470,10 +452,33 @@ public class MovieServiceImpl implements MovieService {
     }
 
 
-    private DisjunctionQuery getActorsDisjunction(String words, Query query) {
+    private DisjunctionQuery getActorsDisjunction(String words, EntityExtractor entityExtractor) {
 
-        if(query!= null && query.getEntities().keySet().contains(PERSON)) {
-            List<String> names = query.getEntities().get(PERSON);
+        if(entityExtractor != null && entityExtractor.getEntities().keySet().contains(PERSON)) {
+            List<String> names = entityExtractor.getEntities().get(PERSON);
+            if(names.size() ==1) {
+                return getDisjunction(names.get(0), "cast.name", 1.5 );
+            } else {
+                DisjunctionQuery dq = new DisjunctionQuery();
+                for(String name: names){
+                    dq.or(getDisjunction(name, "castAdjusted.name", 1.5 ));
+                }
+                return dq;
+            }
+        } else {
+            if (entityExtractor.getWords().trim().isEmpty()) {
+                return null;
+            }
+            DisjunctionQuery castQuery = getDisjunction(words, "castAdjusted.name", 1.15);
+            MatchQuery character = SearchQuery.match(words).field("castAdjusted.character");
+            return SearchQuery.disjuncts(castQuery, character);
+        }
+    }
+
+    private DisjunctionQuery getActorsDisjunctionAdjusted(String words, EntityExtractor entityExtractor) {
+
+        if(entityExtractor != null && entityExtractor.getEntities().keySet().contains(PERSON)) {
+            List<String> names = entityExtractor.getEntities().get(PERSON);
             if(names.size() ==1) {
                 return getDisjunction(names.get(0), "castAdjusted.name", 1.5 );
             } else {
@@ -484,7 +489,7 @@ public class MovieServiceImpl implements MovieService {
                 return dq;
             }
         } else {
-            if (query.getWords().trim().isEmpty()) {
+            if (entityExtractor.getWords().trim().isEmpty()) {
                 return null;
             }
             DisjunctionQuery castQuery = getDisjunction(words, "castAdjusted.name", 1.15);
@@ -493,12 +498,12 @@ public class MovieServiceImpl implements MovieService {
         }
     }
 
-    private DisjunctionQuery getCrewDisjunction(String words, Query query) {
+    private DisjunctionQuery getCrewDisjunction(String words, EntityExtractor entityExtractor) {
 
-        if(query!= null && query.getEntities().keySet().contains(PERSON)) {
-            List<String> names = query.getEntities().get(PERSON);
+        if(entityExtractor != null && entityExtractor.getEntities().keySet().contains(PERSON)) {
+            List<String> names = entityExtractor.getEntities().get(PERSON);
             if(names.size() ==1) {
-                return getDisjunction(words, "crew.name", 1.4);
+                return getDisjunction(names.get(0), "crew.name", 1.4);
             } else {
                 DisjunctionQuery dq = new DisjunctionQuery();
                 for(String name: names){
@@ -507,7 +512,7 @@ public class MovieServiceImpl implements MovieService {
                 return dq;
             }
         } else {
-            if (query.getWords().trim().isEmpty()) {
+            if (entityExtractor.getWords().trim().isEmpty()) {
                 return null;
             }
             DisjunctionQuery nameQuery = getDisjunction(words, "crew.name", 1.15);
@@ -618,19 +623,6 @@ public class MovieServiceImpl implements MovieService {
         return runtimeDisjunction;
     }
 
-//    private List<SearchResult> search5(String words){
-//        String indexName = "movies_all_index";
-//        DisjunctionQuery titleQuery = getDisjunction(words, "title", 1.4);
-//        DisjunctionQuery originalQuery = getDisjunction(words, "original_title", 1.3);
-//        DisjunctionQuery overviewQuery = getDisjunction(words, "overview");
-//        DisjunctionQuery ftsQuery = SearchQuery.disjuncts(titleQuery, originalQuery, originalQuery, overviewQuery);
-//
-//        SearchQueryResult result = movieRepository.getCouchbaseOperations().getCouchbaseBucket().query(
-//                new SearchQuery(indexName, ftsQuery).highlight().limit(30));
-//
-//        return getSearchResults(result);
-//    }
-
 
     private DisjunctionQuery getDisjunction(String words, String field) {
         MatchQuery query = SearchQuery.match(words).field(field);
@@ -641,11 +633,11 @@ public class MovieServiceImpl implements MovieService {
 
     private DisjunctionQuery getDisjunction(String words, String field, double boost) {
         MatchQuery query = SearchQuery.match(words).boost(boost).field(field);
-        MatchQuery queryFuzzy = SearchQuery.match(words).boost(boost).field(field).fuzziness(1);
+        MatchQuery queryFuzzy = SearchQuery.match(words).boost(boost).field(field)
+                .fuzziness(2);
+
         return SearchQuery.disjuncts(query, queryFuzzy);
     }
-
-
 
 
     private Result getSearchResults(SearchQueryResult result){
@@ -678,87 +670,20 @@ public class MovieServiceImpl implements MovieService {
         return rt;
     }
 
-    public void printTime(StopWatch stopWatch){
-
-        System.out.println("=============TIME SPENT====================");
-        System.out.println(stopWatch.getTotalTimeSeconds() +" sec");
-        System.out.println("===========================================");
-    }
-
-
-    private static void printResult(String label, SearchQueryResult resultObject) {
-        System.out.println();
-        System.out.println("= = = = = = = = = = = = = = = = = = = = = = =");
-        System.out.println("= = = = = = = = = = = = = = = = = = = = = = =");
-        System.out.println();
-        System.out.println(label);
-        System.out.println();
-
-        for (SearchQueryRow row : resultObject) {
-            System.out.println(row);
+    private Map<String,List<String>> getFilters(String filters){
+        if (filters == null || filters.trim().isEmpty()) {
+            return new HashMap<>();
         }
+        String[] values = filters.split("::");
+
+        Map<String,List<String>> facets = new HashMap<>();
+        for(int i=0;i<values.length; i++) {
+
+            String[] test = values[i].split("=");
+            if(test.length > 1) {
+                facets.put(test[0], Arrays.asList(test[1].split(",")));
+            }
+        }
+        return facets;
     }
-
-
-
-    //enrichment - augment the movie
-
-    //finger in the wind -- bosting
-    //never have empty results
-    //word2vec
-    //personalization - learn to rank model
-
-
-
-
-
-
-
-
-
-
-
-    /*
-    "   - only index the fields you need to search on;
-        - related, don't use dynamic indexing unless you really need it
-          (""dynamic"": false);
-        - disable include_in_all as it makes another copy
-          (""include_in_all"": false);
-        - don't use stored fields if you're not using
-          the highlighting or faceting features
-          (""store"": false) (""store_dynamic"": false);
-        - if you're indexing id or numeric fields where
-          you don't need to range search (e.g., price > 100)
-          and instead you're only doing exact value matching
-          (e.g., company_id = 12001),
-          then don't use field type ""number""
-          and instead use field type ""text"" and the ""keyword"" analyzer;
-
-        and, also see the FTS Tips document..."
-     */
-
-
-    //https://hub.internal.couchbase.com/confluence/pages/viewpage.action?spaceKey=CBFTS&title=Couchbase+Full+Text+Search
-
-    //COMPArISON
-    //https://docs.google.com/document/d/171-Z9uy1BsZFMkPGvVb0FlODbNnvrgdZvAbgU26xZ2k/edit#
-    //https://github.com/o19s/elasticsearch-learning-to-rank
-    //https://hub.internal.couchbase.com/confluence/pages/viewpage.action?spaceKey=CBFTS&title=Couchbase+Full+Text+Search
-
-
-    //Customer satisfaction and retention – Factors that aid customer retention including seller feedback and order defect rate (ODR). Make customers happy and they’ll keep coming back. The more positive seller feedback and good reviews you get, the more likely it is that you’ll win the sale.
-
-//
-//    It’s a pretty simple process at its core:
-//
-//    First, they pull the relevant results from their massive “catalog” of product listings.
-//            Then, they sort those results into an order that is “most relevant” to the user.
-//            Now, some of you SEOs out there might be thinking, “Wait a second… Isn’t relevancy Google’s turf? I thought Amazon only cared about conversions! What’s all this focus on relevance doing here?”
-//
-//    The answer is simple: Relevance doesn’t mean the same thing to Amazon that it does to Google. Read this statement from A9 carefully to see if you can catch the difference:
-//
-//Time on page and bounce rate
-
-    //confidence on ratings???????????????????
-    //https://medium.freecodecamp.org/whose-reviews-should-you-trust-imdb-rotten-tomatoes-metacritic-or-fandango-7d1010c6cf19
 }

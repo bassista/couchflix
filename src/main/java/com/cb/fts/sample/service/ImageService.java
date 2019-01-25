@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class ImageService {
 
     private static final String prefix = "https://www.google.com/imgres?imgurl=";
+    private static final String chromeDriverPath = "/usr/local/bin/chromedriver";
 
     public CoverVo getImg(String words) throws Exception {
 
@@ -32,7 +33,7 @@ public class ImageService {
             // setting headless mode to true.. so there isn't any ui
             options.setHeadless(true);
 
-            System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+            System.setProperty("webdriver.chrome.driver", chromeDriverPath);
             // Create a new instance of the Chrome driver
             WebDriver driver = new ChromeDriver(options);
             driver.get("https://www.google.com/search?hl=en&tbm=isch&q=" + words + "+movie&oq=star");
@@ -40,11 +41,9 @@ public class ImageService {
 
             List<WebElement> elements = driver.findElements(By.tagName("a"));
 
-            System.out.println("size = " + elements.size());
             for (WebElement element : elements) {
 
                 String href = element.getAttribute("href");
-                //System.out.println(href);
                 if (href != null && href.startsWith(prefix)) {
                     String url = URLDecoder.decode(element.getAttribute("href").replace(prefix, ""), "UTF-8");
 
@@ -58,22 +57,11 @@ public class ImageService {
                 }
             }
 
-          //  driver.close();
             return new CoverVo("default.jpg");
         } catch (Exception e) {
             e.printStackTrace();
             return new CoverVo("default.jpg");
         }
-    }
-
-
-    public static void main(String[] args) {
-
-        String url = "https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Rogue_One%2C_A_Star_Wars_Story_poster.png/220px-Rogue_One%2C_A_Star_Wars_Story_poster.png&imgrefurl=https://en.wikipedia.org/wiki/Rogue_One&docid=Kf4HP6YYDSmE8M&tbnid=cfRWdOxhRNyOPM:&vet=10ahUKEwixnaWs3uXfAhXBkCwKHf58B1oQMwhLKAAwAA..i&w=220&h=326&hl=en&bih=600&biw=800&q=Rogue,One:,A,Star,Wars,Story movie&ved=0ahUKEwixnaWs3uXfAhXBkCwKHf58B1oQMwhLKAAwAA&iact=mrc&uact=8";
-
-
-
-        System.out.println(url);
     }
 
 }
