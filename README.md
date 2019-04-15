@@ -2,7 +2,8 @@
 
 This is a sample project shows how to build a search feature using Bleve/Couchbase FTS
 
-
+# Demo
+https://youtu.be/FYnke4o9aLw
 
 ## How to run this project
 
