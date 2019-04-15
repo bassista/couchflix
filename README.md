@@ -18,7 +18,10 @@ This is a sample project shows how to build a search feature using Bleve/Couchba
 ```
 ./cbimport json -c couchbase://127.0.0.1 -u Administrator -p password -b movies -d file:///Users/deniswsrosa/Desktop/FTS/the-movies-dataset/cb-movies-actors.json  -f list -g %id% -t 4 -v
 ```
-6) Create all indexes
+6) Create index with
+```
+curl -XPUT -H "Content-type:application/json" http://<USER>:<PASSWORD>@<IP_ADDRESSES>:8094/api/index/movies_shingle -d @movies_shingle2.json
+```
 
 7) Run the following command on the root folder of this project:
 ```
