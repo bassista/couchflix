@@ -33,7 +33,7 @@ public class MovieServiceImpl implements MovieService {
     public Result searchQuery(String phrase, String filters) {
         Map<String,List<String>> facets = getFilters(filters);
         //return search11(phrase, facets);
-        return search12(phrase);
+        return search12(phrase, facets);
     }
 
     private Result search1(String word){
