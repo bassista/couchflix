@@ -347,11 +347,9 @@
   },
   "sourceType": "couchbase",
   "sourceName": "movies",
-  "sourceUUID": "926465a35710b15eb324fda31952ce01",
   "sourceParams": {},
   "planParams": {
     "maxPartitionsPerPIndex": 171,
     "numReplicas": 0
-  },
-  "uuid": "38e60eb16b9f3fdc"
+  }
 }

@@ -21,7 +21,7 @@ https://youtu.be/FYnke4o9aLw
 ```
 6) Create index with
 ```
-curl -XPUT -H "Content-type:application/json" http://<USER>:<PASSWORD>@<IP_ADDRESSES>:8094/api/index/movies_shingle -d @movies_shingle2.json
+curl -XPUT -H "Content-type:application/json" http://<USER>:<PASSWORD>@<IP_ADDRESSES>:8094/api/index/movies_shingle -d @movies_shingle.json
 ```
 
 7) Run the following command on the root folder of this project:
