@@ -6,6 +6,5 @@ import org.springframework.data.couchbase.core.query.ViewIndexed;
 import org.springframework.data.couchbase.repository.CouchbasePagingAndSortingRepository;
 
 @N1qlPrimaryIndexed
-@ViewIndexed(designDoc = "movie")
 public interface MovieRepository extends CouchbasePagingAndSortingRepository<Movie, String> {
 }
