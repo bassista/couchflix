@@ -12,12 +12,12 @@ https://youtu.be/FYnke4o9aLw
 3) Go to the "bin" directory of you Couchbase installation( on mac: "/Applications/Couchbase\ Server.app/Contents/Resources/couchbase-core/bin/")
 4) Load the movies dataset with the following command:
 ```
-./cbimport json -c couchbase://127.0.0.1 -u Administrator -p password -b movies -d file:///Users/deniswsrosa/Desktop/FTS/the-movies-dataset/cb-movies-dataset2.json  -f list -g key::%id% -t 4
+./cbimport json -c couchbase://127.0.0.1 -u Administrator -p password -b movies -d file:///PATH-TO-FILE/the-movies-dataset/cb-movies-dataset2.json  -f list -g key::%id% -t 4
 ```
 
 5) Load the actors dataset with the following command:
 ```
-./cbimport json -c couchbase://127.0.0.1 -u Administrator -p password -b movies -d file:///Users/deniswsrosa/Desktop/FTS/the-movies-dataset/cb-movies-actors.json  -f list -g %id% -t 4 -v
+./cbimport json -c couchbase://127.0.0.1 -u Administrator -p password -b movies -d file:///PATH-TO-FILE/the-movies-dataset/cb-movies-actors.json  -f list -g %id% -t 4 -v
 ```
 6) Create index with
 ```
